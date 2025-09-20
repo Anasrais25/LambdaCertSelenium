@@ -2,95 +2,123 @@ using NUnit.Framework;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Remote;
 using OpenQA.Selenium.Chrome;
+using OpenQA.Selenium.Edge;
+using OpenQA.Selenium.Firefox;
+using OpenQA.Selenium.Support.UI;
+using OpenQA.Selenium.IE;
 using System;
 using System.Collections.Generic;
-using OpenQA.Selenium.Support.UI;
-using System.IO;
 
 namespace SeleniumCSharpSample.Tests
 {
     public class BaseTest
     {
-        protected IWebDriver driver;
-        protected WebDriverWait wait;
-        protected string sessionId;
+        protected IWebDriver? driver;
+        protected WebDriverWait? wait;
+        protected string? sessionId;
 
-        /// <summary>
-        /// Creates a LambdaTest remote driver using LT:Options, with debug artifacts enabled.
-        /// </summary>
-        protected IWebDriver CreateRemoteDriver(string browserName, string browserVersion, string platformName, string testName)
+        // Browser + OS combinations for data-driven tests
+        public static IEnumerable<TestCaseData> BrowserConfigs()
         {
-            var user = Environment.GetEnvironmentVariable("LT_USERNAME");
-            var key = Environment.GetEnvironmentVariable("LT_ACCESS_KEY");
-
-            if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(key))
-            {
-                throw new InvalidOperationException("LT_USERNAME or LT_ACCESS_KEY is not set in environment variables.");
-            }
-
-            ChromeOptions options = new ChromeOptions();
-            options.BrowserVersion = browserVersion;
-
-            // LambdaTest W3C style options
-            var ltOptions = new Dictionary<string, object>()
-            {
-                {"username", user},
-                {"accessKey", key},
-                {"platformName", platformName},
-                {"project", "SeleniumCSharpCert"},
-                {"build", "CertBuild-1"},
-                {"name", testName},
-                {"w3c", true},
-                // required debugging artifacts:
-                {"network", true},
-                {"console", true},
-                {"video", true},
-                {"visual", true}
-            };
-
-            options.AddAdditionalOption("LT:Options", ltOptions);
-
-            var remoteUrl = new Uri("https://hub.lambdatest.com/wd/hub/");
-
-            // set generous command timeout to allow network/video capture
-            var remoteDriver = new RemoteWebDriver(remoteUrl, options.ToCapabilities(), TimeSpan.FromSeconds(600));
-            driver = remoteDriver;
-            wait = new WebDriverWait(driver, TimeSpan.FromSeconds(20)); // test timeout 20s as required
-
-            sessionId = ((RemoteWebDriver)driver).SessionId.ToString();
-            Console.WriteLine($"[LT] Session ID: {sessionId}");
-
-            // append session id to file for submission
-            try
-            {
-                File.AppendAllText("session_ids.txt", $"{sessionId}{Environment.NewLine}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Could not write session_ids.txt: {ex.Message}");
-            }
-
-            return driver;
+            yield return new TestCaseData("chrome", "128.0", "Windows 10");
+            yield return new TestCaseData("edge", "127.0", "macOS Ventura");
+            yield return new TestCaseData("firefox", "130.0", "Windows 11");
+            yield return new TestCaseData("internet explorer", "11.0", "Windows 10");
         }
 
-        [TearDown]
-        public void Cleanup()
+        protected IWebDriver CreateRemoteDriver(string browser, string version, string platform, string testName)
         {
-            try
+            // Ensure environment variables are set
+            string username = Environment.GetEnvironmentVariable("LT_USERNAME");
+            string accessKey = Environment.GetEnvironmentVariable("LT_ACCESS_KEY");
+
+            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(accessKey))
+                throw new InvalidOperationException("LT_USERNAME or LT_ACCESS_KEY is not set in environment variables.");
+
+            ICapabilities capabilities = null;
+
+            switch (browser.ToLower())
             {
-                var passed = TestContext.CurrentContext.Result.Outcome.Status == NUnit.Framework.Interfaces.TestStatus.Passed;
-                // mark status on LambdaTest dashboard (optional)
-                try
-                {
-                    ((IJavaScriptExecutor)driver)?.ExecuteScript($"lambda-status={(passed ? "passed" : "failed")}");
-                }
-                catch { /* ignore */ }
+                case "chrome":
+                    var chromeOptions = new ChromeOptions();
+                    chromeOptions.BrowserVersion = version;
+                    chromeOptions.PlatformName = platform;
+                    chromeOptions.AddAdditionalOption("LT:Options", new Dictionary<string, object>
+                    {
+                        ["build"] = "LambdaTest C# 101",
+                        ["name"] = testName,
+                        ["network"] = true,
+                        ["video"] = true,
+                        ["console"] = true,
+                        ["tunnel"] = false
+                    });
+                    capabilities = chromeOptions.ToCapabilities();
+                    break;
+
+                case "edge":
+                    var edgeOptions = new EdgeOptions();
+                    edgeOptions.BrowserVersion = version;
+                    edgeOptions.PlatformName = platform;
+                    edgeOptions.AddAdditionalOption("LT:Options", new Dictionary<string, object>
+                    {
+                        ["build"] = "LambdaTest C# 101",
+                        ["name"] = testName,
+                        ["network"] = true,
+                        ["video"] = true,
+                        ["console"] = true,
+                        ["tunnel"] = false
+                    });
+                    capabilities = edgeOptions.ToCapabilities();
+                    break;
+
+                case "firefox":
+                    var firefoxOptions = new FirefoxOptions();
+                    firefoxOptions.BrowserVersion = version;
+                    firefoxOptions.PlatformName = platform;
+                    firefoxOptions.AddAdditionalOption("LT:Options", new Dictionary<string, object>
+                    {
+                        ["build"] = "LambdaTest C# 101",
+                        ["name"] = testName,
+                        ["network"] = true,
+                        ["video"] = true,
+                        ["console"] = true,
+                        ["tunnel"] = false
+                    });
+                    capabilities = firefoxOptions.ToCapabilities();
+                    break;
+
+                case "internet explorer":
+                    var ieOptions = new InternetExplorerOptions();
+                    ieOptions.BrowserVersion = version;
+                    ieOptions.PlatformName = platform;
+                    ieOptions.AddAdditionalOption("LT:Options", new Dictionary<string, object>
+                    {
+                        ["build"] = "LambdaTest C# 101",
+                        ["name"] = testName,
+                        ["network"] = true,
+                        ["video"] = true,
+                        ["console"] = true,
+                        ["tunnel"] = false
+                    });
+                    capabilities = ieOptions.ToCapabilities();
+                    break;
+
+                default:
+                    throw new ArgumentException("Browser not supported: " + browser);
             }
-            catch { /* ignore */ }
-            finally
-            {
-                try { driver?.Quit(); } catch { }
-            }
+
+            // Remote WebDriver URL
+            string hubUrl = $"https://{username}:{accessKey}@hub.lambdatest.com/wd/hub";
+            driver = new RemoteWebDriver(new Uri(hubUrl), capabilities, TimeSpan.FromSeconds(600));
+
+            // Set wait
+            wait = new WebDriverWait(driver, TimeSpan.FromSeconds(20));
+
+            // Get session ID for LambdaTest
+            sessionId = ((RemoteWebDriver)driver).SessionId.ToString();
+            Console.WriteLine("LambdaTest Session ID: " + sessionId);
+
+            return driver;
         }
     }
 }
