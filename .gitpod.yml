@@ -1,0 +1,20 @@
+image:
+  name: gitpod/workspace-dotnet:latest
+
+tasks:
+  - name: Restore & Build
+    init: |
+      echo "Ensure LT_USERNAME and LT_ACCESS_KEY are set as Gitpod environment variables"
+      dotnet restore src/SeleniumCSharpSample
+      dotnet build src/SeleniumCSharpSample --configuration Release
+  - name: Run tests (dotnet test)
+    command: |
+      echo "Running tests (dotnet test) - results will be printed to console and session_ids.txt will be appended."
+      cd src/SeleniumCSharpSample
+      dotnet test --logger "trx;LogFileName=test_results.trx"
+vscode:
+  extensions:
+    - ms-dotnettools.csharp
+ports:
+  - port: 9222
+    onOpen: ignore
