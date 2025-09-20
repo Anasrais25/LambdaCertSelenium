@@ -1,20 +1,35 @@
-image:
-  name: gitpod/workspace-dotnet:latest
+# .gitpod.yml
+image: gitpod/workspace-dotnet
 
 tasks:
-  - name: Restore & Build
-    init: |
-      echo "Ensure LT_USERNAME and LT_ACCESS_KEY are set as Gitpod environment variables"
-      dotnet restore src/SeleniumCSharpSample
-      dotnet build src/SeleniumCSharpSample --configuration Release
-  - name: Run tests (dotnet test)
-    command: |
-      echo "Running tests (dotnet test) - results will be printed to console and session_ids.txt will be appended."
-      cd src/SeleniumCSharpSample
-      dotnet test --logger "trx;LogFileName=test_results.trx"
+  - init: |
+      echo "Installing .NET SDK..."
+      wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh
+      chmod +x dotnet-install.sh
+      ./dotnet-install.sh --channel 8.0
+      export PATH=$PATH:$HOME/.dotnet
+      dotnet --version
+
+      echo "Restoring NuGet packages..."
+      dotnet restore src/SeleniumCSharpSample/SeleniumCSharpSample.sln
+
+  - command: |
+      echo "Loading environment variables from .env file..."
+      if [ -f .env ]; then
+        export $(cat .env | xargs)
+      fi
+
+      echo "Building project..."
+      dotnet build src/SeleniumCSharpSample/SeleniumCSharpSample.sln
+
+      echo "Running tests on LambdaTest Grid..."
+      mkdir -p test-results
+      # Run tests and capture LambdaTest Session IDs
+      dotnet test src/SeleniumCSharpSample/SeleniumCSharpSample.sln \
+        --logger "trx;LogFileName=test_results.trx" \
+        /p:CollectCoverage=false \
+        | tee test-results/session_ids.txt
+
 vscode:
   extensions:
     - ms-dotnettools.csharp
-ports:
-  - port: 9222
-    onOpen: ignore
