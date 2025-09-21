@@ -13,6 +13,8 @@ This repository contains an NUnit Selenium C# test-suite for the LambdaTest Cert
 2. GitHub repository (private), shared with `LambdaTest-Certifications` or `admin@lambdatestcertifications.com`.
 3. (Optional) Gitpod account to run one-click.
 
+
+
 ## Set environment variables (Gitpod)
 - Go to Gitpod → Variables → Add:
   - `LT_USERNAME` = your username
@@ -25,3 +27,11 @@ This repository contains an NUnit Selenium C# test-suite for the LambdaTest Cert
    ```bash
    cd src/SeleniumCSharpSample
    dotnet test --logger "trx;LogFileName=test_results.trx"
+4. Dotnet is already configured in .gitpod.yml. If it show error then surn below commands:
+        # Install Microsoft package signing key and feed
+        wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+        sudo dpkg -i packages-microsoft-prod.deb
+        
+        # Install dependencies and .NET SDK (8.0 recommended)
+        sudo apt-get update
+        sudo apt-get install -y dotnet-sdk-8.0
