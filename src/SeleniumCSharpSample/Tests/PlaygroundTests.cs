@@ -13,13 +13,17 @@ namespace SeleniumCSharpSample.Tests
         {
             string testName = TestContext.CurrentContext.Test.Name;
             driver = CreateRemoteDriver(browser, version, platform, testName);
-            WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(20));
+
+            // Increase wait timeout for slow browsers like IE
+            int waitTime = browser.ToLower().Contains("internet explorer") ? 40 : 20;
+            WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(waitTime));
 
             // 1. Open Playground
             driver.Navigate().GoToUrl("https://www.lambdatest.com/selenium-playground");
 
             // 2. Click "Simple Form Demo"
-            wait.Until(d => d.FindElement(By.LinkText("Simple Form Demo"))).Click();
+            var simpleFormLink = wait.Until(d => d.FindElement(By.LinkText("Simple Form Demo")));
+            simpleFormLink.Click();
 
             // 3. Validate URL
             Assert.IsTrue(driver.Url.Contains("simple-form-demo"));
@@ -30,24 +34,50 @@ namespace SeleniumCSharpSample.Tests
             inputBox.Clear();
             inputBox.SendKeys(message);
 
-            // 5. Click "Get Checked Value"
-            var getValueBtn = wait.Until(d =>
+            // 5. Click "Get Checked Value" with retries and JS click
+            IWebElement getValueBtn = null;
+            wait.Until(d =>
             {
-                IWebElement btn = null;
-                // Try multiple locators
-                try { btn = d.FindElement(By.Id("showInput")); } catch { }
-                try { if (btn == null) btn = d.FindElement(By.CssSelector(".btn.btn-default")); } catch { }
-                try { if (btn == null) btn = d.FindElement(By.XPath("//button[text()='Get Checked Value']")); } catch { }
-                return btn;
+                try
+                {
+                    // Try multiple locators
+                    getValueBtn = d.FindElement(By.Id("showInput"));
+                }
+                catch (NoSuchElementException)
+                {
+                    try { getValueBtn = d.FindElement(By.CssSelector(".btn.btn-default")); } catch { }
+                    try { if (getValueBtn == null) getValueBtn = d.FindElement(By.XPath("//button[text()='Get Checked Value']")); } catch { }
+                }
+
+                if (getValueBtn != null)
+                {
+                    try
+                    {
+                        // Scroll into view and click using JS for IE
+                        ((IJavaScriptExecutor)d).ExecuteScript("arguments[0].scrollIntoView(true);", getValueBtn);
+                        ((IJavaScriptExecutor)d).ExecuteScript("arguments[0].click();", getValueBtn);
+                        return true; // Click succeeded
+                    }
+                    catch (StaleElementReferenceException)
+                    {
+                        return false; // retry
+                    }
+                }
+                return false; // retry until timeout
             });
-            getValueBtn.Click();
 
             // 6. Validate output
-            var output = wait.Until(d => d.FindElement(By.Id("message")));
+            var output = wait.Until(d =>
+            {
+                var element = d.FindElement(By.Id("message"));
+                return !string.IsNullOrEmpty(element.Text) ? element : null;
+            });
+
             Assert.AreEqual(message, output.Text);
 
             driver.Quit();
         }
+
 
         [Test, TestCaseSource(nameof(BrowserConfigs))]
         public void Scenario2_DragDropSliders(string browser, string version, string platform)
