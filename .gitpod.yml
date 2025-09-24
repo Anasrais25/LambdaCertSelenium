@@ -39,7 +39,11 @@ tasks:
         --logger "trx;LogFileName=test_results.trx" \
         /p:CollectCoverage=false \
         | tee test-results/session_ids.txt
-
+- name: Run Selenium Tests
+    command: |
+      echo "LT_USERNAME=$LT_USERNAME"
+      echo "LT_ACCESS_KEY=$LT_ACCESS_KEY"
+      dotnet test src/SeleniumCSharpSample/SeleniumCSharpSample.csproj
 vscode:
   extensions:
     - ms-dotnettools.csharp
